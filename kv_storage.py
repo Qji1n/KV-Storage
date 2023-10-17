@@ -1,5 +1,4 @@
 import os
-import bson
 from datetime import datetime
 import lz4.frame
 import hashlib
@@ -8,6 +7,9 @@ from tkinter import filedialog, messagebox, simpledialog, Toplevel
 import base64
 import math
 import threading
+import bson
+import time
+import pickle
 
 
 class Hasher:
@@ -32,7 +34,7 @@ class FileWrapper:
         with open(filepath, 'wb') as file:
             file.write(base64.b64decode(data))
 
-
+'''
 class KVStorageGUI(tk.Tk):
 
     def __init__(self, *args, **kwargs):
@@ -198,6 +200,8 @@ class KVStorageGUI(tk.Tk):
                 messagebox.showinfo("Value", f"Value for '{key}':\n\n{value}")
         else:
             messagebox.showerror("Error", f"No value found for key '{key}'")
+'''
+
 
 '''
 if __name__ == "__main__":
@@ -205,37 +209,47 @@ if __name__ == "__main__":
     app.mainloop()
 '''
 
-class KVStorage:
+class OriginalKVStorage:
     def __init__(self, filename):
         self.filename = filename
         self.data = {}
-        self.hasher = Hasher()
+        self.buffer = {}
         if os.path.exists(filename):
             self.load()
 
-    def set(self, key, value, multiply = False):
-        hashed_key = self.hasher.hash(key)
-        self.data[hashed_key] = {'original_key': key, 'value': value}
-        if (not multiply):
-            self.save()
+    def set(self, key, value):
+        self.buffer[key] = value
 
     def set_multiple(self, key_value_dict):
         for key, value in key_value_dict.items():
-            self.set(key, value, multiply=True)
-        self.save()
+            self.set(key, value)
+        self.commit()
 
     def get(self, key, default=None):
-        hashed_key = self.hasher.hash(key)
-        return self.data.get(hashed_key, {}).get('value', default)
+        # First, try to get from buffer
+        if key in self.buffer:
+            return self.buffer[key]
+        # If not in buffer, try to get from main data
+        return self.data.get(key, default)
 
     def delete(self, key):
-        hashed_key = self.hasher.hash(key)
-        if hashed_key in self.data:
-            del self.data[hashed_key]
-            self.save()
+        # Mark the key for deletion in the buffer
+        self.buffer[key] = None
 
     def get_all_keys(self):
-        return [item['original_key'] for item in self.data.values()]
+        # Combine keys from main data and buffer, but exclude keys marked for deletion
+        all_keys = list(self.data.keys()) + [k for k, v in self.buffer.items() if v is not None]
+        return list(set(all_keys))
+
+    def commit(self):
+        # Apply buffer to main data and clear the buffer
+        for key, value in self.buffer.items():
+            if value is None:  # If value is marked for deletion
+                self.data.pop(key, None)
+            else:
+                self.data[key] = value
+        self.buffer.clear()
+        self.save()
 
     def save(self):
         with open(self.filename, 'wb') as f:
@@ -249,8 +263,10 @@ class KVStorage:
             decompressed = lz4.frame.decompress(compressed)
             self.data = bson.loads(decompressed)
 
+
+'''
 time1 = datetime.now()
-storage = KVStorage('data_small.kvs')
+storage = KVStorage('big_big_data.kvs')
 f = open('log2.txt')
 value1001 = f.read()
 print(datetime.now() - time1)
@@ -258,10 +274,47 @@ value_dict = {}
 for i in range(1, 1000000):
     value_dict['key {i}'.format(i = i)] = 'value {i}'.format(i = i)
 print(datetime.now() - time1)
-storage.set('key 1001', value1001)
-print(datetime.now() - time1)
 storage.set_multiple(value_dict)
+print(datetime.now() - time1)
+storage.set('key 1001', value1001)
 print(datetime.now() - time1)
 a = storage.get('key 783')
 print(datetime.now() - time1)
 f.close()
+'''
+
+def test_mass_insert(storage, data):
+    start_time = time.time()
+    storage.set_multiple(data)
+    end_time = time.time()
+    return end_time - start_time
+
+def test_mass_get(storage, keys):
+    start_time = time.time()
+    for key in keys:
+        storage.get(key)
+    end_time = time.time()
+    return end_time - start_time
+
+def generate_data(num_entries=1000000):
+    return {f'key {i}': f'value {i}' for i in range(num_entries)}
+
+data = generate_data()
+keys = list(data.keys())
+
+original_storage = OriginalKVStorage('original_data.kvs')
+sqlite_storage = SQLiteKVStorage('sqlite_data.kvs')
+
+# Тест массовой вставки
+original_insert_time = test_mass_insert(original_storage, data)
+sqlite_insert_time = test_mass_insert(sqlite_storage, data)
+
+print(f"Original Insert Time: {original_insert_time} seconds")
+print(f"SQLite Insert Time: {sqlite_insert_time} seconds")
+
+# Тест массового запроса
+original_get_time = test_mass_get(original_storage, keys)
+sqlite_get_time = test_mass_get(sqlite_storage, keys)
+
+print(f"Original Get Time: {original_get_time} seconds")
+print(f"SQLite Get Time: {sqlite_get_time} seconds")

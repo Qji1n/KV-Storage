@@ -5,7 +5,6 @@ from lz4 import frame
 import bson
 import hashlib
 import struct
-
 import os
 import bson
 import lz4.frame

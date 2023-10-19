@@ -221,10 +221,19 @@ def test_large_file_insert(storage, filepath, repetitions=5):
 def test_large_file_get(storage, repetitions=5):
     start_time = time.time()
     for i in range(repetitions):
-        _ = storage.get(f'key_largefile_{i}')
+        _values = storage.get(f'key_largefile_{i}')
     end_time = time.time()
 
     return end_time - start_time
+
+
+def test_get_all_keys(storage, repetitions = 5):
+    start_time = time.time()
+    _values = storage.get_all_keys()
+    end_time = time.time()
+
+    return end_time - start_time
+
 
 filepath = os.path.join(os.getcwd(), "log2.txt")
 
@@ -246,3 +255,10 @@ shard_get_time = test_large_file_get(shard_storage)
 
 print(f"Original Get Time for Large File: {original_get_time} seconds")
 print(f"Shard Get Time for Large File: {shard_get_time} seconds")
+
+
+#Тест получения всех ключей
+original_get_all_keys_time = test_get_all_keys(original_storage)
+shard_get_all_keys_time = test_get_all_keys(shard_storage)
+print(f"Original Get all keys Time for Large File: {original_get_all_keys_time} seconds")
+print(f"Shard Get all keys Time for Large File: {shard_get_all_keys_time} seconds")

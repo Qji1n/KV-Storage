@@ -84,6 +84,12 @@ class OriginalKVStorage:
                 results[key] = value
         return results
 
+    # Метод для поиска всех ключей по заданному значению
+    def search_keys_for_value(self, target_value):
+        results = [key for key, value in self.data and self.buffer if value == target_value]
+        return results
+
+
 
 class ShardKVStorage:
     # Инициализация объекта хранилища
@@ -209,3 +215,24 @@ class ShardKVStorage:
                         if key.startswith(prefix):
                             result[key] = value
         return result
+
+
+    # Метод для поиска ключей по значению
+    def search_keys_for_value(self, target_value):
+        results = []
+        for shard_num in range(
+                self.num_shards):  # Проход по всем файлам-шардам
+            filename = f"{self.filename_prefix}_shard_{shard_num}.kvs"
+            if os.path.exists(filename):
+                with open(filename, 'rb') as f:
+                    while True:
+                        size_data = f.read(4)
+                        if not size_data:
+                            break
+                        size = struct.unpack("I", size_data)[0]
+                        chunk = f.read(size)
+                        decompressed = lz4.frame.decompress(chunk)
+                        data = bson.loads(decompressed)
+                    for key, value in data:
+                        if value == target_value:
+                            results.append(key)

@@ -1,6 +1,7 @@
 import time
-import kv_storage
 import os
+
+from storage_arch import kv_storage
 
 
 def test_mass_insert(storage, data):

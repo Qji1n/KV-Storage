@@ -1,93 +1,10 @@
-import time
-import lz4
-from lz4 import frame
 import hashlib
-import struct
 import os
+import struct
 import bson
-import lz4.frame
+import lz4
 
-
-class OriginalKVStorage:
-    # Инициализация объекта хранилища
-    def __init__(self, filename):
-        self.filename = filename  # Имя файла, где будет сохраняться база данных
-        self.data = {}  # Словарь для хранения данных из файла
-        self.buffer = {}  # Буфер для временного хранения данных
-
-        # Если файл существует, загрузить данные из него
-        if os.path.exists(filename):
-            self.load()
-
-    # Метод для добавления значения по ключу в буфер
-    def set(self, key, value):
-        self.buffer[key] = value
-
-    # Метод для добавления нескольких значений
-    def set_multiple(self, key_value_dict):
-        for key, value in key_value_dict.items():
-            self.set(key, value)
-        self.commit()  # Применить изменения из буфера
-
-    # Метод для получения значения по ключу
-    def get(self, key, default=None):
-        if key in self.buffer:  # Если ключ в буфере, вернуть значение из него
-            return self.buffer[key]
-        return self.data.get(key,
-                             default)  # Иначе взять значение из основного хранилища
-
-    # Метод для удаления значения по ключу
-    def delete(self, key):
-        self.buffer[
-            key] = None  # Установка значения None в буфере указывает на необходимость удаления
-
-    # Метод для получения всех ключей в хранилище
-    def get_all_keys(self):
-        # Объединение ключей из основного хранилища и буфера (если значения не None)
-        all_keys = list(self.data.keys()) + [k for k, v in self.buffer.items()
-                                             if v is not None]
-        return list(set(all_keys))  # Удаление дубликатов ключей
-
-    # Метод для применения изменений из буфера в основное хранилище
-    def commit(self):
-        for key, value in self.buffer.items():
-            if value is None:  # Если значение None, удалить ключ
-                self.data.pop(key, None)
-            else:
-                self.data[key] = value
-        self.buffer.clear()  # Очистить буфер
-        self.save()  # Сохранить изменения в файл
-
-    # Метод для сохранения данных хранилища в файл
-    def save(self):
-        with open(self.filename, 'wb') as f:
-            packed_data = bson.dumps(
-                self.data)  # Сериализация данных в формат BSON
-            compressed = lz4.frame.compress(packed_data)  # Сжатие данных
-            f.write(compressed)  # Запись в файл
-
-    # Метод для загрузки данных из файла
-    def load(self):
-        with open(self.filename, 'rb') as f:
-            compressed = f.read()  # Чтение сжатых данных
-            decompressed = lz4.frame.decompress(
-                compressed)  # Расшифровка данных
-            self.data = bson.loads(
-                decompressed)  # Десериализация данных из формата BSON
-
-    # Метод для префиксного поиска по ключам
-    def search_key_for_prefix(self, prefix):
-        results = {}
-        for key, value in self.data and self.buffer:
-            if key.startswith(prefix):
-                results[key] = value
-        return results
-
-    # Метод для поиска всех ключей по заданному значению
-    def search_keys_for_value(self, target_value):
-        results = [key for key, value in self.data and self.buffer if value == target_value]
-        return results
-
+from lz4 import frame
 
 
 class ShardKVStorage:
@@ -95,7 +12,6 @@ class ShardKVStorage:
     def __init__(self, filename_prefix, num_shards=256):
         self.filename_prefix = filename_prefix  # Префикс для имен файлов-шардов
         self.num_shards = num_shards  # Количество шардов (разделений)
-        self.buffer = {}  # Буфер для временного хранения данных (не используется в представленном коде)
 
     # Внутренний метод для получения имени файла-шарда на основе ключа
     def _get_shard_filename(self, key):
@@ -162,7 +78,7 @@ class ShardKVStorage:
                     new_data.update(
                         data)  # Добавление данных в временный словарь
 
-            new_data.pop(key, None)  # Удаление ключа
+            data.pop(key, None)  # Удаление ключа
 
             with open(filename,
                       'wb') as f:  # Запись обновленных данных обратно в файл
@@ -188,15 +104,13 @@ class ShardKVStorage:
                         chunk = f.read(size)
                         decompressed = lz4.frame.decompress(chunk)
                         data = bson.loads(decompressed)
-                        all_keys.extend(
-                            data.keys())  # Добавление ключей из файла в общий список
+                        for key in data.keys():
+                            if data[key] is not None:
+                                all_keys.append(key)  # Добавление ключей из файла в общий список
         return list(set(all_keys))  # Удаление дубликатов ключей
 
-    def commit(self):
-        pass
-
     def search_keys_for_prefix(self, prefix):
-        result = {}
+        result = []
         for shard_num in range(
                 self.num_shards):  # Проход по всем файлам-шардам
             filename = f"{self.filename_prefix}_shard_{shard_num}.kvs"
@@ -210,11 +124,10 @@ class ShardKVStorage:
                         chunk = f.read(size)
                         decompressed = lz4.frame.decompress(chunk)
                         data = bson.loads(decompressed)
-                    for key, value in data:
+                    for key in list(data.keys()):
                         if key.startswith(prefix):
-                            result[key] = value
+                            result.append(key)
         return result
-
 
     # Метод для поиска ключей по значению
     def search_keys_for_value(self, target_value):
@@ -235,3 +148,7 @@ class ShardKVStorage:
                     for key, value in data:
                         if value == target_value:
                             results.append(key)
+        return results
+
+    def save(self):
+        pass

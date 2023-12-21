@@ -25,7 +25,7 @@ def main():
                 key = input("Введите ключ: ")
                 value = input("Введите значение: ")
                 storage.set(key, value)
-                print("Значение добавлено.")
+                print("\nЗначение добавлено.")
             elif single_or_multiple == '2':
                 n = int(input("Сколько значений добавить? "))
                 dict_keys_values = {}
@@ -34,56 +34,57 @@ def main():
                     value = input(f"Введите значение {i+1}: ")
                     dict_keys_values[key] = value
                 storage.set_multiple(dict_keys_values)
-                print("Значения добавлены.")
+                print("\nЗначения добавлены.")
             else:
-                print("Неверный выбор.")
+                print("\nНеверный выбор.")
 
         elif choice == '2':
             key = input("Введите ключ: ")
             value = storage.get(key)
             if value is not None:
-                print(f"Значение: {value}")
+                print(f"\nЗначение: {value}")
             else:
-                print("Значение не найдено.")
+                print("\nЗначение не найдено.")
 
         elif choice == '3':
             key = input("Введите ключ для удаления: ")
             if key in storage.get_all_keys():
                 storage.delete(key)
-                print("Ключ удалён.")
+                print("\nКлюч удалён.")
             else:
-                print("Ключ не найден.")
+                print("\nКлюч не найден.")
 
         elif choice == '4':
             keys = storage.get_all_keys()
             if keys:
-                print("Все ключи:", keys)
+                print("\nВсе ключи:", keys)
             else:
-                print("Хранилище пусто.")
+                print("\nХранилище пусто.")
 
         elif choice == '5':
             prefix = input("Введите префикс: ")
             keys = storage.search_key_for_prefix(prefix)
             if keys:
-                print("Найденные ключи:", keys)
+                print("\nНайденные ключи:", keys)
             else:
-                print("Ключи с таким префиксом не найдены.")
+                print("\nКлючи с таким префиксом не найдены.")
 
         elif choice == '6':
             value = input("Введите значение для поиска: ")
             keys = storage.search_keys_for_value(value)
             if keys:
-                print("Найденные ключи:", keys)
+                print("\nНайденные ключи:", keys)
             else:
-                print("Ключи с таким значением не найдены.")
+                print("\nКлючи с таким значением не найдены.")
 
         elif choice == '7':
-            print("Выход из хранилища.")
+            print("\nВыход из хранилища.")
             storage.save()
             break
 
         else:
-            print("Неверный выбор, попробуйте ещё раз.")
+            print("\nНеверный выбор, попробуйте ещё раз.")
+
 
 if __name__ == "__main__":
     main()

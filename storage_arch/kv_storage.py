@@ -19,7 +19,6 @@ class KVStorageHandler:
         self.ram_limit = ram_limit
         self.disk_limit = disk_limit
 
-
     def _current_ram_usage(self):
         return sum(sys.getsizeof(key) + sys.getsizeof(value) for key, value in
                    self.original_storage.data.items())
@@ -27,7 +26,7 @@ class KVStorageHandler:
     def _choose_storage(self, key, value):
         size = sys.getsizeof(key) + sys.getsizeof(value)
         if (size > self.ram_limit - self._current_ram_usage()) \
-                or (size >  50 * 1024 * 1024):
+                or (size > 50 * 1024 * 1024):
             if self._shard_storage_total_size() + size > self.disk_limit:
                 raise MemoryLimitExceededError("Memory limits exceeded")
             return self.shard_storage
@@ -43,7 +42,7 @@ class KVStorageHandler:
         return total_size
 
     def set(self, key, value):
-        if self.get(key) != None:
+        if self.get(key) is not None:
             self.delete(key)
         storage = self._choose_storage(key, value)
         storage.set(key, value)

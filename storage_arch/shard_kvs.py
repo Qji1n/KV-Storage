@@ -75,10 +75,9 @@ class ShardKVStorage:
                     decompressed = lz4.frame.decompress(
                         chunk)  # Расшифровка данных
                     data = bson.loads(decompressed)
-                    new_data.update(
-                        data)  # Добавление данных в временный словарь
+                    new_data.update(data)  # Добавление данных в временный словарь
 
-            data.pop(key, None)  # Удаление ключа
+            new_data.pop(key, None)  # Удаление ключа
 
             with open(filename,
                       'wb') as f:  # Запись обновленных данных обратно в файл
@@ -145,7 +144,7 @@ class ShardKVStorage:
                         chunk = f.read(size)
                         decompressed = lz4.frame.decompress(chunk)
                         data = bson.loads(decompressed)
-                    for key, value in data:
+                    for key, value in data.items():
                         if value == target_value:
                             results.append(key)
         return results

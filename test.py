@@ -1,86 +1,140 @@
-import time
 import os
+import unittest
+import shutil
 
 from storage_arch import kv_storage
 
 
-def test_mass_insert(storage, data):
-    start_time = time.time()
-    if hasattr(storage, 'set_multiple'):
-        storage.set_multiple(data)
-    else:
-        for key, value in data.items():
-            storage.put(key, value)
-    end_time = time.time()
-    return end_time - start_time
+def delete_test_files():
+    os.chdir('..')
+    path = os.getcwd()
+    shutil.rmtree(path + "\\\\test_storage")
 
 
-def test_mass_get(storage, keys):
-    start_time = time.time()
-    for key in keys:
-        storage.get(key)
-    end_time = time.time()
-    return end_time - start_time
+class TestKVStorage(unittest.TestCase):
+    def setUp(self):
+        os.makedirs("test_storage")
+        os.chdir("test_storage")
+        self.storage = kv_storage.KVStorageHandler("test_original", "test_shard", 10)
+
+    def test_mass_insert(self):
+        data = {'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3',
+                'key4': 'value4',
+                'key5': 'value5',
+                'key6': 'value6',
+                'key7': 'value7',
+                'key8': 'value8',
+                'key9': 'value9'}
+        self.storage.set_multiple(data)
+        test_list = []
+        for k, v in data.items():
+            test_list.append(self.storage.get(k))
+
+        self.assertEquals(test_list.sort(), list(data.values()).sort())
+        delete_test_files()
+
+    def test_find_keys_for_prefix(self):
+        data = {'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3',
+                'key4': 'value4',
+                'kkeeyy5': 'value5',
+                'kkeeyy6': 'value6',
+                'kkeeyy7': 'value7',
+                'kkeeyy8': 'value8',
+                'kkeeyy9': 'value9'}
+        self.storage.set_multiple(data)
+        key_prefix_keys = self.storage.search_key_for_prefix('key')
+        kkeeyy_prefix_keys = self.storage.search_key_for_prefix('kkeeyy')
+
+        self.assertEquals(['key1',
+                           'key2',
+                           'key3',
+                           'key4'].sort(),
+                          list(key_prefix_keys).sort())
+
+        self.assertEquals(['kkeeyy5',
+                           'kkeeyy6',
+                           'kkeeyy7',
+                           'kkeeyy8',
+                           'kkeeyy9'].sort(),
+                          list(kkeeyy_prefix_keys).sort())
+
+        delete_test_files()
+
+    def test_find_keys_for_value(self):
+        data = {'key1': 'value1',
+                'key2': 'value1',
+                'key3': 'value2',
+                'key4': 'value2',
+                'key5': 'value2',
+                'key6': 'value3',
+                'key7': 'value3',
+                'key8': 'value3',
+                'key9': 'value3'}
+        self.storage.set_multiple(data)
+        keys_for_value1 = self.storage.search_keys_for_value("value1")
+        keys_for_value2 = self.storage.search_keys_for_value("value2")
+        keys_for_value3 = self.storage.search_keys_for_value("value3")
+
+        delete_test_files()
+        self.assertEquals(["key1", "key2"].sort(), keys_for_value1.sort())
+        self.assertEquals(["key3", "key4", "key5"].sort(), keys_for_value2.sort())
+        self.assertEquals(["key6", "key7", "key8", "key9"].sort(), keys_for_value3.sort())
+
+    def test_get_all_keys(self):
+        data = {'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3',
+                'key4': 'value4',
+                'key5': 'value5',
+                'key6': 'value6',
+                'key7': 'value7',
+                'key8': 'value8',
+                'key9': 'value9'}
+        self.storage.set_multiple(data)
+        values = self.storage.get_all_keys()
+
+        delete_test_files()
+        self.assertEquals(values.sort(), list(data.keys()).sort())
+
+    def test_delete(self):
+        data = {'key1': 'value1',
+                'key2': 'value2',
+                'key3': 'value3',
+                'key4': 'value4',
+                'key5': 'value5',
+                'key6': 'value6',
+                'key7': 'value7',
+                'key8': 'value8',
+                'key9': 'value9'}
+        self.storage.set_multiple(data)
+        self.storage.delete("key1")
+        self.storage.delete("key5")
+        key1_value = self.storage.get("key1")
+        key5_value = self.storage.get("key5")
+
+        delete_test_files()
+        self.assertEquals(None, key1_value)
+        self.assertEquals(None, key5_value)
+
+    def test_work_with_large_file(self):
+        os.chdir('..')
+        filepath = os.path.join(os.getcwd(), "log2.txt")
+        os.chdir("test_storage")
+        file_size = os.path.getsize(filepath)
+        with open(filepath, 'r') as f:
+            content = f.read()
+
+        self.storage.set('key_largefile', content)
+        archived_file_size = self.storage._shard_storage_total_size()
+        kv_content = self.storage.get('key_largefile')
+        delete_test_files()
+        self.assertLess(archived_file_size, file_size)
+        self.assertEquals(content, kv_content)
 
 
-def generate_data(num_entries=1000000):
-    return {f'key {i}': f'value {i}' for i in range(num_entries)}
-
-
-def test_large_file_insert(storage, filepath, repetitions=5):
-    with open(filepath, 'r') as f:
-        content = f.read()
-
-    start_time = time.time()
-    for i in range(repetitions):
-        storage.set(f'key_largefile_{i}', content)
-    storage.commit()
-    end_time = time.time()
-
-    return end_time - start_time
-
-
-def test_large_file_get(storage, repetitions=5):
-    start_time = time.time()
-    for i in range(repetitions):
-        _values = storage.get(f'key_largefile_{i}')
-    end_time = time.time()
-
-    return end_time - start_time
-
-
-def test_get_all_keys(storage, repetitions = 5):
-    start_time = time.time()
-    _values = storage.get_all_keys()
-    end_time = time.time()
-
-    return end_time - start_time
-
-
-filepath = os.path.join(os.getcwd(), "log2.txt")
-
-
-# Инициализируем хранилища
-original_storage = kv_storage.OriginalKVStorage('original_data.kvs')
-shard_storage = kv_storage.ShardKVStorage('shard_data.kvs')
-
-# Тест массовой вставки большого файла
-original_insert_time = test_large_file_insert(original_storage, filepath)
-shard_insert_time = test_large_file_insert(shard_storage, filepath)
-
-print(f"Original Insert Time for Large File: {original_insert_time} seconds")
-print(f"Shard Insert Time for Large File: {shard_insert_time} seconds")
-
-# Тест массового запроса большого файла
-original_get_time = test_large_file_get(original_storage)
-shard_get_time = test_large_file_get(shard_storage)
-
-print(f"Original Get Time for Large File: {original_get_time} seconds")
-print(f"Shard Get Time for Large File: {shard_get_time} seconds")
-
-
-# Тест получения всех ключей
-original_get_all_keys_time = test_get_all_keys(original_storage)
-shard_get_all_keys_time = test_get_all_keys(shard_storage)
-print(f"Original Get all keys Time for Large File: {original_get_all_keys_time} seconds")
-print(f"Shard Get all keys Time for Large File: {shard_get_all_keys_time} seconds")
+if __name__ == "__main__":
+    unittest.main()
